@@ -1,4 +1,4 @@
-'''Main application (Brian's version)'''
+'''Main application (Ellie's version)'''
 
 from common import *
 
