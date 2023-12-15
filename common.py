@@ -19,17 +19,18 @@ def ss(input: str, sep: str = ',') -> list[str]:
     return [item.strip() for item in input.split(sep) if len(item.strip()) > 0]
 
 
-# provisional
-def solutions_pretty(const_names: list[str], solutions: list[list[int]]) -> str:
-    '''Solution pretty-formatter'''
-    out = f'{len(solutions)} solution{"" if len(solutions) == 1 else "s"} found:\n'
-    for solution in solutions:
-        sol = '--------------------\n'
-        for name, weight in zip(const_names, solution):
-            sol += f'{name}: {int(weight)}\n'
-        out += sol
+def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> str:
+    ListOfConNames = get_constraint_names(data)
 
-    return out
+    solution_text = f'{len(solutions)} solution{"" if len(solutions) == 1 else "s"} found\n'
+
+    for solution in solutions: 
+        solution_output = '-----------------------------\n'
+        for constraint_name, constraint_weight in zip(ListOfConNames, solution):
+            solution_output += f'{constraint_name}: {int(constraint_weight)}\n'
+        solution_text += solution_output
+    
+    return solution_text
 
 
 # Work in progress

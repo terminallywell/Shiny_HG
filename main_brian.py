@@ -46,13 +46,8 @@ def server(input, output, session):
             # solve language
             solutions = solve_language(data())
 
-            # format solutions
-            if 'HR' in (columns := data().columns):
-                names = columns[4:]
-            else:
-                names = columns[3:]
-            
-            sol.set(solutions_pretty(list(names), solutions)) # set solution text
+            # format solutions            
+            sol.set(create_solution_table(data(), solutions)) # set solution text
 
         else: # if no file is uploaded
             ui.modal_show(ui.modal('No file has been uploaded.'))

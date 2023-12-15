@@ -3,20 +3,6 @@
 from common import *
 
 
-def create_solution_table(data, ListOfSolutions) -> str:
-    ListOfConNames = get_constraint_names(data)
-
-    solution_text = f'{len(ListOfSolutions)} solution(s) found\n'
-
-    for solution in ListOfSolutions: 
-        solution_output = '-----------------------------\n'
-        for constraint_name, constraint_weight in zip(ListOfConNames, solution):
-            solution_output += f'{constraint_name}: {int(constraint_weight)}\n'
-        solution_text += solution_output
-    
-    return solution_text
-
-
 app_ui = ui.page_sidebar(
     ui.sidebar(
         # User upload
