@@ -6,7 +6,7 @@ from pyHG import *
 
 def ss(input: str, sep: str = ',') -> list[str]:
     '''
-    Splits and Strips the input, ignoring empty strings.
+    Splits and Strips the input, ignoring empty substrings.
 
     ### Parameters
     * `input: str` The input string to be split and stripped.
