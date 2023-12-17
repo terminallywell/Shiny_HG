@@ -1,24 +1,7 @@
-from shiny import App, render, ui, reactive
-from pyHG import *
-import pandas as pd
+'''Ellie's attempt'''
 
-# Function to turn the regular solution output into nice text
-def create_solution_table(data, ListOfSolutions) -> str:
-    ListOfConNames = get_constraint_names(data)
+from common import *
 
-    solution_text = f'{len(ListOfSolutions)} solution(s) found\n'
-
-    for solution in ListOfSolutions: 
-        solution_output = '-----------------------------\n'
-        for constraint_name, constraint_weight in zip(ListOfConNames, solution):
-            solution_output += f'{constraint_name}: {int(constraint_weight)}\n'
-        solution_text += solution_output
-    
-    return solution_text
-
-# Function to take the user inputs and separate them for tab creation, etc
-def prepare_reps(input: str, delim: str = ',') -> list[str]:
-    return [item.strip() for item in input.split(delim) if len(item.strip())>0]
 
 # Create the UI
 app_ui = ui.page_fluid(
@@ -28,13 +11,13 @@ app_ui = ui.page_fluid(
                ui.layout_sidebar(
                     ui.panel_sidebar(
                         # User upload
-                        ui.input_file("file", "Choose file", button_label='Browse...', placeholder='No file selected'),
+                        ui.input_file("file", "Choose file"),
 
                         # Initiate Solve
-                        ui.input_action_button("solve", "Solve!", class_="btn-success"),
+                        ui.input_action_button("solve", "Solve!", class_="btn-primary"),
 
                         # Display solution when solved
-                        ui.output_text_verbatim("solutions_output", placeholder="Solutions will be displayed here"),
+                        ui.output_text_verbatim("solutions_output"),
                     ),
                     ui.panel_main(
                         # Display tableau uploaded by user
@@ -47,8 +30,8 @@ app_ui = ui.page_fluid(
             ui.layout_sidebar(
                     ui.panel_sidebar(
                         # Displays for troubleshooting
-                        ui.output_text_verbatim("intermediate_constraints", placeholder="Display current constraints here"),
-                        ui.output_text_verbatim("intermediate_URs", placeholder="Display current URs here"),
+                        ui.output_text_verbatim("intermediate_constraints"),
+                        ui.output_text_verbatim("intermediate_URs"),
                         #ui.output_text_verbatim("intermediate_rep_dict", placeholder="Display dictionary here"),
 
                         # User upload
@@ -82,12 +65,17 @@ def server(input, output, session):
     solution_text = reactive.Value()
 
     # Create way to update tableau and solutions when necessary
+    # Create way to update user input value display in real time
     @reactive.Effect
     def set():
         solution_text.set("Solutions will be displayed here")
         # Hides error if no file uploaded yet
         if input.file():
             tableau_data.set(read_file(str(input.file()[0]["datapath"])[:-4]))
+
+        current_constraints.set("Display current constraints here")
+        current_URs.set("Display current URs here")
+        dictionary_of_representations.set("Display dictionary here")
 
     # Generate a tidy tableau of user data whenever a new file is uploaded
     @reactive.Calc
@@ -130,19 +118,12 @@ def server(input, output, session):
     current_URs = reactive.Value()
     dictionary_of_representations = reactive.Value()
 
-    # Create way to update user input value display in real time
-    @reactive.Effect
-    def set():
-        current_constraints.set("Display current constraints here")
-        current_URs.set("Display current URs here")
-        dictionary_of_representations.set("Display dictionary here")
-
     # If the user has input any URs, create a tab for each
     @render.ui
     def modify_with_input_UR():
         if input.input_URs():
             navs = []
-            UR_list = prepare_reps(str(current_URs()))
+            UR_list = current_URs()
 
             for UR in UR_list:
                 navs.append(
@@ -157,7 +138,7 @@ def server(input, output, session):
     # Access and display the current constraints inputted by the user into the top display textbox (updates in real time)
     @reactive.Effect
     def display_current_constraints():
-        current_constraints.set(prepare_reps(input.input_constraints()))
+        current_constraints.set(ss(input.input_constraints()))
     @render.text
     def intermediate_constraints():
         return current_constraints()
@@ -165,7 +146,7 @@ def server(input, output, session):
     # Access and display the current URs inputted by the user into the top display textbox (updates in real time)
     @reactive.Effect
     def display_current_URs():
-        current_URs.set(prepare_reps(input.input_URs()))
+        current_URs.set(ss(input.input_URs()))
     @render.text
     def intermediate_URs():
         return current_URs()
