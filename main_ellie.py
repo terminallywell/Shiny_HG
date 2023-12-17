@@ -6,13 +6,13 @@ from common import *
 app_ui = ui.page_sidebar(
     ui.sidebar(
         # User upload
-        ui.input_file("file", "Choose file", button_label='Browse...', placeholder='No file selected'),
+        ui.input_file("file", "Choose file"),
 
         # Initiate Solve
-        ui.input_action_button("solve", "Solve!", class_="btn-success"),
+        ui.input_action_button("solve", "Solve!", class_="btn-primary"),
 
         # Display solution when solved
-        ui.output_text_verbatim("solutions_output", placeholder="Solutions will be displayed here"),
+        ui.output_text_verbatim("solutions_output"),
 
         width=400
     ),

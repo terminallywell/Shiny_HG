@@ -6,17 +6,17 @@ from pyHG import *
 
 def ss(input: str, sep: str = ',') -> list[str]:
     '''
-    Splits and Strips the input.
+    Splits and Strips the input, ignoring empty strings.
 
     ### Parameters
     * `input: str` The input string to be split and stripped.
     * `sep: str` The separator used to split the string. Default: `,`
 
     ### Example
-    >>> ss('this, is , an, example  ')
+    >>> ss('this, is , an, example  , ,,') 
     ['this', 'is', 'an', 'example']
     '''
-    return [item.strip() for item in input.split(sep) if len(item.strip()) > 0]
+    return [item.strip() for item in input.split(sep) if item.strip()]
 
 
 def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> str:
