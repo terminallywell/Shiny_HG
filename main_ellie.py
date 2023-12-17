@@ -50,8 +50,10 @@ def server(input, output, session):
     # Generate the solution set whenever a new file is uploaded
     @reactive.Calc
     def gen_solution_set():
-        if input['file']():
-            return create_solution_table(read_file(str(input['file']()[0]["datapath"][:-4])), solve_language(read_file(str(input['file']()[0]["datapath"][:-4]))))
+        return create_solution_table(
+            read_file(str(input['file']()[0]["datapath"][:-4])),
+            solve_language(read_file(str(input['file']()[0]["datapath"][:-4])))
+        )
     
     # When the user tries to solve, if there is a file, render the corresponding
     @reactive.Effect

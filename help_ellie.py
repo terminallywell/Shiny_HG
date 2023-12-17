@@ -5,8 +5,8 @@ from common import *
 
 # Create the UI
 app_ui = ui.page_fluid(
-    # Create a first tab for simple user uploading
     ui.navset_tab_card(
+        # Create a first tab for simple user uploading
         ui.nav("Upload tableau", 
                ui.layout_sidebar(
                     ui.panel_sidebar(
@@ -70,8 +70,8 @@ def server(input, output, session):
     def set():
         solution_text.set("Solutions will be displayed here")
         # Hides error if no file uploaded yet
-        if input.file():
-            tableau_data.set(read_file(str(input.file()[0]["datapath"])[:-4]))
+        if input['file']():
+            tableau_data.set(read_file(input['file']()[0]["datapath"][:-4]))
 
         current_constraints.set("Display current constraints here")
         current_URs.set("Display current URs here")
@@ -80,8 +80,8 @@ def server(input, output, session):
     # Generate a tidy tableau of user data whenever a new file is uploaded
     @reactive.Calc
     def gen_user_data_table():
-        if input.file():
-            return tidy_tableaux(read_file(str(input.file()[0]["datapath"])[:-4]))
+        if input['file']():
+            return tidy_tableaux(read_file(input['file']()[0]["datapath"][:-4]))
     
     # Render the new tidy tableau
     @render.table()
@@ -91,14 +91,17 @@ def server(input, output, session):
     # Generate the solution set whenever a new file is uploaded
     @reactive.Calc
     def gen_solution_set():
-        if input.file():
-            return create_solution_table(read_file(str(input.file()[0]["datapath"][:-4])), solve_language(read_file(str(input.file()[0]["datapath"][:-4]))))
+        if input['file']():
+            return create_solution_table(
+                read_file(input['file']()[0]["datapath"][:-4]),
+                solve_language(read_file(input['file']()[0]["datapath"][:-4]))
+            )
     
     # When the user tries to solve, if there is a file, generate the solution(s)
     @reactive.Effect
-    @reactive.event(input.solve)
+    @reactive.event(input['solve'])
     def solutions_text():
-        if input.file():
+        if input['file']():
             solution_text.set(gen_solution_set())
     #Otherwise, give prompt to upload
         else:
@@ -121,7 +124,7 @@ def server(input, output, session):
     # If the user has input any URs, create a tab for each
     @render.ui
     def modify_with_input_UR():
-        if input.input_URs():
+        if input['input_URs']():
             navs = []
             UR_list = current_URs()
 
@@ -138,7 +141,7 @@ def server(input, output, session):
     # Access and display the current constraints inputted by the user into the top display textbox (updates in real time)
     @reactive.Effect
     def display_current_constraints():
-        current_constraints.set(ss(input.input_constraints()))
+        current_constraints.set(ss(input['input_constraints']()))
     @render.text
     def intermediate_constraints():
         return current_constraints()
@@ -146,7 +149,7 @@ def server(input, output, session):
     # Access and display the current URs inputted by the user into the top display textbox (updates in real time)
     @reactive.Effect
     def display_current_URs():
-        current_URs.set(ss(input.input_URs()))
+        current_URs.set(ss(input['input_URs']()))
     @render.text
     def intermediate_URs():
         return current_URs()
@@ -154,10 +157,10 @@ def server(input, output, session):
     '''@reactive.Effect
     def create_dictionary_of_representations():
         representation_dictionary = {}
-        current_URs = prepare_reps(input.input_URs())
+        current_URs = prepare_reps(input['input_URs']())
         for UR in current_URs:
             current_SRs = f'input_SR_{UR}'
-            if input.current_SRs():
+            if input['current_SRs']():
                 representation_dictionary[f'{UR}'] = current_SRs
             else:
                 representation_dictionary[f'{UR}'] = "placeholder"
@@ -176,7 +179,7 @@ def server(input, output, session):
         df = pd.DataFrame()
 
         # Collect all the user input, if applicable
-        constraint_list = prepare_reps(input.input_constraints())
+        constraint_list = prepare_reps(input['input_constraints']())
         UR_list = representation_dict().keys()
         SR_list = representation_dict().values()
 
@@ -187,8 +190,8 @@ def server(input, output, session):
             num_gaps_to_insert = len(corresponding_SRs) - 1
             final_UR_column.append(np.repeat("-", num_gaps_to_insert))
         df['UR'] = final_UR_column
-        if input.input_SRs: df['SR'] = SR_list
-        #if input.input_HRs(): df['HR'] = HR_list
+        if input['input_SRs']: df['SR'] = SR_list
+        #if input['input_HRs'](): df['HR'] = HR_list
         #df['Obs'] = ['-', '-', '1', '-', '-', '-', '1', '-']
         for constraint in constraint_list:
             df[f'{constraint}'] = [1, 1, 0, 0, 1, 0, 1, 0]
