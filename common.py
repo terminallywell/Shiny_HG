@@ -6,7 +6,7 @@ from pyHG import *
 
 def to_tableau(input_file) -> pd.DataFrame:
     '''
-    Function to convert Shiny input file into DataFrame
+    Converts Shiny input file into DataFrame
     '''
     return read_file(input_file[0]["datapath"][:-4])
 
@@ -28,22 +28,23 @@ def ss(input: str, sep: str = ',') -> list[str]:
 
 def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> str:
     '''
-    Function to turn the regular solution output into nice text
+    Solution list pretty-formatter
     '''
+    if len(solutions) == 0:
+        return 'No solution found!'
+    
     names = get_constraint_names(data)
 
     text = f'{len(solutions)} solution{"" if len(solutions) == 1 else "s"} found:\n'
 
     for i, solution in enumerate(solutions): 
-        solution_output = f'\n[Solution {i + 1}]\n'
+        text += f'\n[Solution {i + 1}]\n'
         for name, weight in zip(names, solution):
-            solution_output += f'{name}: {int(weight)}\n'
-        text += solution_output
+            text += f'{name}: {int(weight)}\n'
     
     return text
 
 
-# Work in progress
 def weights_and_harmonies(tableau: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
     '''
     Returns a copy of tableau with weights added to constraint column names as well as a Harmony column
@@ -59,4 +60,4 @@ def weights_and_harmonies(tableau: pd.DataFrame, solution: list[float]) -> pd.Da
 
     new_tableau['H'] = [sum(-viol * weight for viol, weight in zip(row[1], solution)) for row in rows]
 
-    return new_tableau
+    return tidy_tableaux(new_tableau)
