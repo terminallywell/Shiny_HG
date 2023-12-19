@@ -1,4 +1,4 @@
-'''Main application (Brian's version)'''
+'''[DEPRECATED] Main application (Brian's version)'''
 
 from common import *
 
