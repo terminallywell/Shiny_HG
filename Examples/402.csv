@@ -1,5 +1,5 @@
 UR,SR,Obs,*ComplexOnset,*Fricative/Onset,Max,Max(fric)
 ,,,,,,
 stoʊv,soʊv,1,0,1,1,0
-stoʊv,stoʊv,,1,1,0,0
-stoʊv,toʊv,,0,0,1,1
+,stoʊv,,1,1,0,0
+,toʊv,,0,0,1,1
