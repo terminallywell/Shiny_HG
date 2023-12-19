@@ -9,7 +9,7 @@ app_ui = ui.page_sidebar(
     ui.sidebar(
         ui.navset_underline(
             ui.nav(
-                'Build tableau',
+                'Build/Edit Tableau',
                 'coming soon (maybe we can start small from violation count editing)'
             ),
             ui.nav(
@@ -53,7 +53,7 @@ def server(input, output, session):
                     data(),
                     solutions()[int(input['sol_index']()[-1]) - 1] # solution selected in select_solution
                 )
-            return data() # otherwise display without weights and harmony
+            return tidy_tableaux(data()) # otherwise display without weights and harmony
     
     # Tableau solver
     @reactive.Effect
