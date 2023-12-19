@@ -71,7 +71,7 @@ def server(input, output, session):
         solution_text.set("Solutions will be displayed here")
         # Hides error if no file uploaded yet
         if input['file']():
-            tableau_data.set(read_file(input['file']()[0]["datapath"][:-4]))
+            tableau_data.set(to_tableau(input['file']()))
 
         current_constraints.set("Display current constraints here")
         current_URs.set("Display current URs here")
@@ -81,7 +81,7 @@ def server(input, output, session):
     @reactive.Calc
     def gen_user_data_table():
         if input['file']():
-            return tidy_tableaux(read_file(input['file']()[0]["datapath"][:-4]))
+            return tidy_tableaux(to_tableau(input['file']()))
     
     # Render the new tidy tableau
     @render.table()
@@ -91,11 +91,10 @@ def server(input, output, session):
     # Generate the solution set whenever a new file is uploaded
     @reactive.Calc
     def gen_solution_set():
-        if input['file']():
-            return create_solution_table(
-                read_file(input['file']()[0]["datapath"][:-4]),
-                solve_language(read_file(input['file']()[0]["datapath"][:-4]))
-            )
+        return create_solution_table(
+            to_tableau(input['file']()),
+            solve_language(to_tableau(input['file']()))
+        )
     
     # When the user tries to solve, if there is a file, generate the solution(s)
     @reactive.Effect
