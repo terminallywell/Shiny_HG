@@ -1,4 +1,17 @@
-'''Brian's main application v2'''
+'''
+## Brian's main application v2
+
+### Current features
+- Uploading tableau CSV files and solving
+- Selecting and integrating solution into tableau with Harmony column
+
+### Work in progress
+- Editing uploaded tableau in "Build/Edit Tableau" tab
+    - Only winner selection is implemented currently
+    - TODO: instead of having to do it with an "apply" button, we need to find a way to make winner selection trigger:
+        - `update_tableau()` 
+        - `resetter()`
+'''
 
 from common import *
 
@@ -10,7 +23,8 @@ app_ui = ui.page_sidebar(
         ui.navset_underline(
             ui.nav(
                 'Build/Edit Tableau',
-                'coming soon (maybe we can start small from violation count editing)'
+                ui.output_ui('select_winner'), # provisional
+                ui.input_action_button('apply', 'Apply')
             ),
             ui.nav(
                 'Upload CSV',
@@ -36,7 +50,8 @@ def server(input, output, session):
     sol_text = reactive.Value() # solution text
 
     @reactive.Effect
-    def _():
+    def resetter():
+        input['apply']() # 'apply' button triggers this function
         # clear solutions and text every time file is uploaded
         solutions.set([])
         sol_text.set('Solutions will be displayed here')
@@ -49,11 +64,14 @@ def server(input, output, session):
     def render_tableau():
         if input['file']():
             if solutions(): # if tableau is solved
-                return weights_and_harmonies( # display tableau with weights and harmony
+                tableau = apply_solution( # display tableau with weights and harmony
                     data(),
                     solutions()[int(input['sol_index']()[-1]) - 1] # solution selected in select_solution
                 )
-            return tidy_tableaux(data()) # otherwise display without weights and harmony
+            else:
+                tableau = data() # otherwise display without weights and harmony
+            
+            return tidy_tableaux(tableau)
     
     # Tableau solver
     @reactive.Effect
@@ -79,5 +97,33 @@ def server(input, output, session):
                 'Select solution to apply',
                 [*map(lambda i: f'Solution {i + 1}', range(len(solutions())))]
             )
+
+    # Winner selection render function (provisional)
+    @render.ui
+    def select_winner():
+        if input['file']():
+            selects = []
+            for ur in gen_URlist(data()):
+                selects.append(
+                    ui.input_selectize(
+                        f'winner_{ur}',
+                        f'Select winner for {ur}',
+                        gen_SR(data(), ur),
+                        selected=get_winner(data(), ur),
+                    )
+                )
+
+            return selects
+    
+    # Update tableau based on selected winner
+    @reactive.Effect
+    @reactive.event(input['apply']) # Apparently gets stuck in a loop if you try to update it real-time without an explicit trigger
+    def update_tableau():
+        new_data = data().copy()
+        for ur in gen_URlist(data()):
+            change_winner(new_data, ur, input[f'winner_{ur}']())
+
+        data.set(new_data)
+
 
 app = App(app_ui, server)

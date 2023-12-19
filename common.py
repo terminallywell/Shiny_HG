@@ -6,7 +6,7 @@ from pyHG import *
 
 def to_tableau(input_file) -> pd.DataFrame:
     '''
-    Converts Shiny input file into DataFrame
+    Converts Shiny input file into DataFrame.
     '''
     return read_file(input_file[0]["datapath"][:-4])
 
@@ -28,7 +28,7 @@ def ss(input: str, sep: str = ',') -> list[str]:
 
 def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> str:
     '''
-    Solution list pretty-formatter
+    Solution list pretty-formatter.
     '''
     if len(solutions) == 0:
         return 'No solution found!'
@@ -45,19 +45,35 @@ def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> s
     return text
 
 
-def weights_and_harmonies(tableau: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
+def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
     '''
-    Returns a copy of tableau with weights added to constraint column names as well as a Harmony column
+    Returns a copy of tableau with weights added to constraint column names as well as a Harmony column.
     '''
-    new_tableau = tableau.rename(
-        columns={const_name: const_name + f' ({int(weight)})' for const_name, weight in zip(get_constraint_names(tableau), solution)}
+    new_data = data.rename(
+        columns={const_name: const_name + f' ({int(weight)})' for const_name, weight in zip(get_constraint_names(data), solution)}
     )
 
-    if 'HR' in new_tableau.columns:
-        rows = new_tableau.iloc[:, 4:].iterrows()
+    if 'HR' in new_data.columns:
+        rows = new_data.iloc[:, 4:].iterrows()
     else:
-        rows = new_tableau.iloc[:, 3:].iterrows()
+        rows = new_data.iloc[:, 3:].iterrows()
 
-    new_tableau['H'] = [sum(-viol * weight for viol, weight in zip(row[1], solution)) for row in rows]
+    new_data['H'] = [sum(-viol * weight for viol, weight in zip(row[1], solution)) for row in rows]
 
-    return tidy_tableaux(new_tableau)
+    return new_data
+
+
+def get_winner(data: pd.DataFrame, ur: str) -> str:
+    '''
+    Returns the winning SR of the given UR.
+    '''
+    return data.loc[(data['UR'] == ur) & (data['Obs'] == 1), 'SR'].to_list()[0]
+
+
+def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
+    '''
+    Changes the winning SR of the given UR in the tableau.
+    '''
+    mask = (data['SR'] == winner) & (~data['SR'].duplicated(keep='first'))
+    data.loc[(data['UR'] == ur) & mask, 'Obs'] = 1
+    data.loc[(data['UR'] == ur) & ~mask, 'Obs'] = np.NaN
