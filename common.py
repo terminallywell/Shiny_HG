@@ -3,6 +3,12 @@
 from shiny import App, render, reactive, ui
 from pyHG import *
 
+# For debugging only
+import sys
+import datetime
+import time
+
+def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
 
 def to_tableau(input_file) -> pd.DataFrame:
     '''

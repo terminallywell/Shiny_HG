@@ -1,6 +1,11 @@
 '''Ellie's attempt'''
 
 from common import *
+import sys
+import datetime
+import time
+
+def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
 
 
 # Create the UI
@@ -67,10 +72,11 @@ def server(input, output, session):
         if input['file']():
             tableau_data.set(to_tableau(input['file']()))
 
+        current_constraints.set([])
         current_URs.set([])
 
     # Generate a tidy tableau of user data whenever a new file is uploaded
-    @reactive.calc
+    @reactive.Calc
     def gen_user_data_table():
         if input['file']():
             return tidy_tableaux(to_tableau(input['file']()))
@@ -81,7 +87,7 @@ def server(input, output, session):
         return gen_user_data_table()
 
     # Generate the solution set whenever a new file is uploaded
-    @reactive.calc
+    @reactive.Calc
     def gen_solution_set():
         return create_solution_table(
             to_tableau(input['file']()),
@@ -107,7 +113,9 @@ def server(input, output, session):
     ###########This section is for the BYO tableau tab###########
     #############################################################
     # Initialize reactive values to get current user inputs
+    current_constraints = reactive.Value()
     current_URs = reactive.Value()
+    dictionary_of_representations = reactive.Value()
 
     # If the user has input any URs, create a tab for each
     @reactive.effect(priority=100)
@@ -115,17 +123,25 @@ def server(input, output, session):
     def modify_with_input_UR():
         navs = []
         UR_list = current_URs()
-
+        eprint(f"modify_with_input_UR(): UR_list={UR_list}")
         for UR in UR_list:
+            input_text_handle = ui.input_text(f"input_SR_{UR}", f"Enter possible SRs of {UR} separated by commas")
+            eprint(f"--Just created input_text_handle {input_text_handle}")
             navs.append(
                 ui.nav_panel(UR,
                     ui.p(f"The name of this textbox is input_SR_{UR}"),
-                    ui.input_text(f"input_SR_{UR}", f"Enter possible SRs of {UR} separated by commas"),
+                    input_text_handle,
                     ui.input_checkbox("enable_HRs", "Enable HRs (currently does nothing)"),
                     ui.output_ui(f"modify_with_input_SR"),
                 )
             )
+        time.sleep(1)
         return ui.navset_card_tab(*navs)
+
+    # Access and display the current constraints input by the user into the top display textbox (updates in real time)
+    @reactive.effect
+    def display_current_constraints():
+        current_constraints.set(ss(input['input_constraints']()))
     
     # Access and display the current URs input by the user into the top display textbox (updates in real time) **SHOULD BUT DOESN'T??? WHY
     @reactive.effect
@@ -141,28 +157,38 @@ def server(input, output, session):
         # Collect all the user input, if applicable
         constraint_list = ss(input['input_constraints']())
         underlying_rep_list = ss(input['input_URs']())
+        eprint("----------------------------------")
+        eprint(datetime.datetime.now())
+        eprint(f'URs are {underlying_rep_list}')
         
         surface_rep_list = list()
         for UR in underlying_rep_list:
+            eprint(f'UR is "{UR}"   ==input_SR_{UR}==')
+            eprint(input.__dict__)
             if f'input_SR_{UR}' in input:
                 items = ss(input[f'input_SR_{UR}']())
             else:
                 items = [ '!']
             if len(items) == 0:
                 items = [ '?' ]
+            eprint(f"items is {items}")
             surface_rep_list.extend(items)
-
+            eprint(f'SRs are {surface_rep_list}')
+        eprint('Done with UR loop')
         # Initialize an empty UR column to be edited based on presence of SRs
         final_UR_column = []
         for UR in underlying_rep_list:
             # Append the current UR to the list
             final_UR_column.append(UR)
+            eprint(f'final_UR_column is currently {final_UR_column}')
             # Only worry about adding gaps if there are SRs inserted for this particular UR
             if f'input_SR_{UR}' in input:
                 if input[f'input_SR_{UR}']():
                     num_corresponding_SRs = len(ss(input[f'input_SR_{UR}']()))
+                    eprint(f'number of SRs is {num_corresponding_SRs}')
                     if num_corresponding_SRs > 1:
                         final_UR_column.extend(np.repeat("-", num_corresponding_SRs - 1))
+                        eprint(f'final_UR_column is now {final_UR_column}')
 
         # Only show UR column if there is user input to prevent random floating box
         if input['input_URs']():
