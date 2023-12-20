@@ -5,13 +5,13 @@ from common import *
 
 # Create the UI
 app_ui = ui.page_fluid(
-    ui.navset_tab_card(
+    ui.navset_card_tab(
         # Create a first tab for simple user uploading
         ui.nav("Upload tableau", 
                ui.layout_sidebar(
                     ui.panel_sidebar(
                         # User upload
-                        ui.input_file("file", "Choose file"),
+                        ui.input_file("file", "Choose file", button_label='Browse...', placeholder='No file selected'),
 
                         # Initiate Solve
                         ui.input_action_button("solve", "Solve!", class_="btn-primary"),
@@ -29,11 +29,6 @@ app_ui = ui.page_fluid(
         ui.nav("Build your own tableau", 
             ui.layout_sidebar(
                     ui.panel_sidebar(
-                        # Displays for troubleshooting
-                        ui.output_text_verbatim("intermediate_constraints"),
-                        ui.output_text_verbatim("intermediate_URs"),
-                        #ui.output_text_verbatim("intermediate_rep_dict", placeholder="Display dictionary here"),
-
                         # User upload
                         ui.input_text("input_constraints", "Enter a list of constraints separated by commas"),
                         ui.input_text("input_URs", "Enter a list of URs separated by commas"),
@@ -115,86 +110,70 @@ def server(input, output, session):
     ###########This section is for the BYO tableau tab###########
     #############################################################
     # Initialize reactive values to get current user inputs
-    tableau_data = reactive.Value()
     current_constraints = reactive.Value()
     current_URs = reactive.Value()
     dictionary_of_representations = reactive.Value()
 
     # If the user has input any URs, create a tab for each
+    #@reactive.Effect
     @render.ui
     def modify_with_input_UR():
-        if input['input_URs']():
-            navs = []
-            UR_list = current_URs()
+        navs = []
+        UR_list = current_URs()
 
-            for UR in UR_list:
-                navs.append(
-                    ui.nav(UR,
-                        #ui.input_text(f"input_SR_{UR}", f"Enter possible surface representations of {UR} separated by commas"),
-                        #ui.input_checkbox("enable_HRs", "Enable HRs"),
-                        ui.output_ui("modify_with_input_SR"),
-                    )
+        for UR in UR_list:
+            navs.append(
+                ui.nav(UR,
+                    ui.input_text(f"input_SR_{UR}", f"Enter possible SRs of {UR} separated by commas"),
+                    ui.input_checkbox("enable_HRs", "Enable HRs (currently does nothing)"),
+                    ui.output_ui(f"modify_with_input_SR"),
                 )
-            return ui.navset_card_tab(*navs)
+            )
+        return ui.navset_card_tab(*navs)
 
-    # Access and display the current constraints inputted by the user into the top display textbox (updates in real time)
+    # Access and display the current constraints input by the user into the top display textbox (updates in real time)
     @reactive.Effect
     def display_current_constraints():
         current_constraints.set(ss(input['input_constraints']()))
-    @render.text
-    def intermediate_constraints():
-        return current_constraints()
     
-    # Access and display the current URs inputted by the user into the top display textbox (updates in real time)
+    # Access and display the current URs input by the user into the top display textbox (updates in real time) **SHOULD BUT DOESN'T??? WHY
     @reactive.Effect
     def display_current_URs():
         current_URs.set(ss(input['input_URs']()))
-    @render.text
-    def intermediate_URs():
-        return current_URs()
     
-    '''@reactive.Effect
-    def create_dictionary_of_representations():
-        representation_dictionary = {}
-        current_URs = prepare_reps(input['input_URs']())
-        for UR in current_URs:
-            current_SRs = f'input_SR_{UR}'
-            if input['current_SRs']():
-                representation_dictionary[f'{UR}'] = current_SRs
-            else:
-                representation_dictionary[f'{UR}'] = "placeholder"
-        dictionary_of_representations.set(current_URs)
-    
-    @render.text
-    def intermediate_rep_dict():
-        if not bool(dictionary_of_representations):
-            return dictionary_of_representations
-        else:
-            return dictionary_of_representations'''
-    
-    '''@output
+    @output
     @render.data_frame
     def BYO_user_data_table():
         df = pd.DataFrame()
 
         # Collect all the user input, if applicable
-        constraint_list = prepare_reps(input['input_constraints']())
-        UR_list = representation_dict().keys()
-        SR_list = representation_dict().values()
+        constraint_list = ss(input['input_constraints']())
+        underlying_rep_list = ss(input['input_URs']())
 
-        final_UR_column = []
-        for UR in UR_list:
-            final_UR_column.append(UR)
-            corresponding_SRs = representation_dict()[f'{UR}']
-            num_gaps_to_insert = len(corresponding_SRs) - 1
-            final_UR_column.append(np.repeat("-", num_gaps_to_insert))
-        df['UR'] = final_UR_column
-        if input['input_SRs']: df['SR'] = SR_list
+        '''if input['input_SRs']: df['SR'] = SR_list
         #if input['input_HRs'](): df['HR'] = HR_list
-        #df['Obs'] = ['-', '-', '1', '-', '-', '-', '1', '-']
-        for constraint in constraint_list:
-            df[f'{constraint}'] = [1, 1, 0, 0, 1, 0, 1, 0]
+        #df['Obs'] = ['-', '-', '1', '-', '-', '-', '1', '-']'''
+        
+        # Initialize an empty UR column to be edited based on presence of SRs
+        final_UR_column = []
+        #final_SR_column = []
+        for UR in underlying_rep_list:
+            final_UR_column.append(UR)
+            #corresponding_SRs = ss(input[f'input_SR_{UR}']())
+            #if len(corresponding_SRs) >= 1:
+                #num_gaps_to_insert = len(corresponding_SRs) - 1
+                #final_UR_column.append(np.repeat("-", num_gaps_to_insert))
+            #final_SR_column.append(corresponding_SRs)
 
-        return df'''
+        # Only show UR column if there is user input to prevent random floating box
+        if input['input_URs']():
+            df['UR'] = final_UR_column
+        #df['SR'] = final_SR_column
+
+        # Add each constraint as a column with the constraint name as the header and placeholder values for now
+        for constraint in constraint_list:
+            df[f'{constraint}'] = np.repeat("-", len(final_UR_column))
+
+        return df
 
 app = App(app_ui, server)
