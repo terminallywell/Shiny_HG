@@ -1,11 +1,8 @@
 '''Ellie's attempt'''
 
 from common import *
-import sys
-import datetime
-import time
 
-def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
+input_boxes = {}
 
 
 # Create the UI
@@ -63,9 +60,35 @@ def server(input, output, session):
     tableau_data = reactive.Value()
     solution_text = reactive.Value()
 
+    # If the user has input any URs, create a tab for each
+    @reactive.effect(priority=100)
+    @render.ui
+    def modify_with_input_UR():
+        navs = []
+        UR_list = current_URs()
+        eprint(f"modify_with_input_UR(): UR_list={UR_list}")
+        for UR in UR_list:
+            key = f"input_SR_{UR}"
+            if key in input_boxes:
+                eprint(f"{datetime.datetime.now()}: reused input_text_handle {key}")
+                input_text_handle = input_boxes[key]
+            else:
+                input_text_handle = ui.input_text(key, f"Enter possible SRs of {UR} separated by commas")
+                eprint(f"{datetime.datetime.now()}: Created new input_text_handle {key}")
+                input_boxes[key] = input_text_handle
+            new_nav_element = ui.nav_panel(UR,
+                    ui.p(f"The name of this textbox is input_SR_{UR}"),
+                    input_text_handle,
+                    ui.input_checkbox("enable_HRs", "Enable HRs (currently does nothing)"),
+                    #ui.output_ui(f"modify_with_input_SR"),
+                )
+            navs.append(new_nav_element)
+        eprint(f'Tabs being created at {datetime.datetime.now()}')
+        return ui.navset_card_tab(*navs)
+
     # Create way to update tableau and solutions when necessary
     # Create way to update user input value display in real time
-    @reactive.effect
+    @reactive.effect(priority=100)
     def set():
         solution_text.set("Solutions will be displayed here")
         # Hides error if no file uploaded yet
@@ -76,7 +99,7 @@ def server(input, output, session):
         current_URs.set([])
 
     # Generate a tidy tableau of user data whenever a new file is uploaded
-    @reactive.Calc
+    @reactive.calc
     def gen_user_data_table():
         if input['file']():
             return tidy_tableaux(to_tableau(input['file']()))
@@ -87,7 +110,7 @@ def server(input, output, session):
         return gen_user_data_table()
 
     # Generate the solution set whenever a new file is uploaded
-    @reactive.Calc
+    @reactive.calc
     def gen_solution_set():
         return create_solution_table(
             to_tableau(input['file']()),
@@ -95,7 +118,7 @@ def server(input, output, session):
         )
     
     # When the user tries to solve, if there is a file, generate the solution(s)
-    @reactive.effect
+    @reactive.effect(priority=50)
     @reactive.event(input['solve'])
     def solutions_text():
         if input['file']():
@@ -115,56 +138,39 @@ def server(input, output, session):
     # Initialize reactive values to get current user inputs
     current_constraints = reactive.Value()
     current_URs = reactive.Value()
-    dictionary_of_representations = reactive.Value()
-
-    # If the user has input any URs, create a tab for each
-    @reactive.effect(priority=100)
-    @render.ui
-    def modify_with_input_UR():
-        navs = []
-        UR_list = current_URs()
-        eprint(f"modify_with_input_UR(): UR_list={UR_list}")
-        for UR in UR_list:
-            input_text_handle = ui.input_text(f"input_SR_{UR}", f"Enter possible SRs of {UR} separated by commas")
-            eprint(f"--Just created input_text_handle {input_text_handle}")
-            navs.append(
-                ui.nav_panel(UR,
-                    ui.p(f"The name of this textbox is input_SR_{UR}"),
-                    input_text_handle,
-                    ui.input_checkbox("enable_HRs", "Enable HRs (currently does nothing)"),
-                    ui.output_ui(f"modify_with_input_SR"),
-                )
-            )
-        time.sleep(1)
-        return ui.navset_card_tab(*navs)
 
     # Access and display the current constraints input by the user into the top display textbox (updates in real time)
-    @reactive.effect
+    @reactive.effect(priority=50)
     def display_current_constraints():
         current_constraints.set(ss(input['input_constraints']()))
     
     # Access and display the current URs input by the user into the top display textbox (updates in real time) **SHOULD BUT DOESN'T??? WHY
-    @reactive.effect
+    @reactive.effect(priority=50)
     def display_current_URs():
         current_URs.set(ss(input['input_URs']()))
     
     #@output
-    @reactive.effect(priority=50)
+    @reactive.effect(priority=-100)
     @render.data_frame
     def BYO_user_data_table():
+        eprint('------------------------------------------------')
+        eprint(f'Time at loop start is {datetime.datetime.now()}, starting tab generation')
+        #reactive.invalidate_later(5)
         df = pd.DataFrame()
 
         # Collect all the user input, if applicable
         constraint_list = ss(input['input_constraints']())
         underlying_rep_list = ss(input['input_URs']())
-        eprint("----------------------------------")
-        eprint(datetime.datetime.now())
+        eprint(f'Tabs have been created at {datetime.datetime.now()}')
         eprint(f'URs are {underlying_rep_list}')
         
         surface_rep_list = list()
         for UR in underlying_rep_list:
             eprint(f'UR is "{UR}"   ==input_SR_{UR}==')
-            eprint(input.__dict__)
+            eprint(f"{datetime.datetime.now()}: ", input.__dict__)
+            eprint(f"{datetime.datetime.now()}: ", input_boxes)
+            eprint(f"{datetime.datetime.now()}: ", input[f'input_SR_{UR}']())
+            eprint(f"{datetime.datetime.now()}: ", str(input[f'input_SR_{UR}']()))
             if f'input_SR_{UR}' in input:
                 items = ss(input[f'input_SR_{UR}']())
             else:
@@ -174,7 +180,7 @@ def server(input, output, session):
             eprint(f"items is {items}")
             surface_rep_list.extend(items)
             eprint(f'SRs are {surface_rep_list}')
-        eprint('Done with UR loop')
+
         # Initialize an empty UR column to be edited based on presence of SRs
         final_UR_column = []
         for UR in underlying_rep_list:
@@ -200,6 +206,7 @@ def server(input, output, session):
         for constraint in constraint_list:
             df[f'{constraint}'] = np.repeat("-", len(final_UR_column))
 
+        eprint(f'Table being generated at {datetime.datetime.now()}')
         return df
 
 app = App(app_ui, server)
