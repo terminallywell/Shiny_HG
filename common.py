@@ -4,9 +4,7 @@ from shiny import App, render, reactive, ui
 from pyHG import *
 
 # For debugging only
-import sys
-import datetime
-import time
+import sys, datetime, time
 
 def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
 
@@ -51,12 +49,18 @@ def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> s
     return text
 
 
+def solution_simple(data: pd.DataFrame, solutions: list[list[float]]) -> str:
+    if len(solutions) == 0:
+        return 'No solution found!'
+    return f'{len(solutions)} solution{"" if len(solutions) == 1 else "s"} found.\n'
+
+
 def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
     '''
     Returns a copy of tableau with weights added to constraint column names as well as a Harmony column.
     '''
     new_data = data.rename(
-        columns={const_name: const_name + f' ({int(weight)})' for const_name, weight in zip(get_constraint_names(data), solution)}
+        columns={const_name: const_name + f' : {int(weight)}' for const_name, weight in zip(get_constraint_names(data), solution)}
     )
 
     if 'HR' in new_data.columns:
@@ -83,3 +87,9 @@ def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
     mask = (data['SR'] == winner) & (~data['SR'].duplicated(keep='first'))
     data.loc[(data['UR'] == ur) & mask, 'Obs'] = 1
     data.loc[(data['UR'] == ur) & ~mask, 'Obs'] = np.NaN
+
+
+def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
+    '''
+    Formats tableau as CSV. (In development)
+    '''
