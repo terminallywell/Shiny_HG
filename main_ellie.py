@@ -38,8 +38,16 @@ app_ui = ui.page_fluid(
                         # Create tab sections for adding SR inputs for each UR input
                         ui.p("Add surface representations for your URs"),
                         ui.output_ui("modify_with_input_UR"),
+
+                        # Create tab sections for adding constraint violations for each SR input
                         ui.p("Note constraint violations for your SRs"),
                         ui.output_ui("input_violations"),
+
+                        # Initiate Solve
+                        ui.input_action_button("BYO_solve", "Solve!", class_="btn-primary"),
+
+                        # Display solution when solved
+                        ui.output_text_verbatim("BYO_solutions_output"),
                     ),
                     ui.panel_main(
                         # Display tableau uploaded by user
@@ -69,6 +77,7 @@ def server(input, output, session):
 
         current_constraints.set([])
         current_URs.set([])
+        BYO_solution_text.set("Solutions will be displayed here")
 
     # Generate a tidy tableau of user data whenever a new file is uploaded
     @reactive.calc
@@ -110,6 +119,7 @@ def server(input, output, session):
     # Initialize reactive values to get current user inputs
     current_constraints = reactive.Value()
     current_URs = reactive.Value()
+    BYO_solution_text = reactive.Value()
 
     # Access and display the current constraints input by the user into the top display textbox (updates in real time)
     @reactive.effect()
@@ -120,6 +130,11 @@ def server(input, output, session):
     @reactive.effect()
     def display_current_URs():
         current_URs.set(ss(input['input_URs']()))
+    
+    # Show the new solution(s)
+    @render.text
+    def BYO_solutions_output():
+        return BYO_solution_text()
 
     # If the user has input any URs, create a tab for each
     @reactive.effect()
@@ -139,7 +154,7 @@ def server(input, output, session):
             )
         return ui.navset_card_tab(*navs)
     
-    # If the user has input any URs, create a tab for each
+    # If the user has input any constraints, create a tab for each
     @reactive.effect()
     @render.ui
     def input_violations():
@@ -190,7 +205,7 @@ def server(input, output, session):
                         final_UR_column.extend(np.repeat("-", num_corresponding_SRs - 1))
         
         # Initialize an empty OBS column to be edited based on the chosen winner candidates
-        obs_column = np.repeat("-", len(final_UR_column))
+        obs_column = np.repeat("0", len(final_UR_column))
         # Get the user-specified winners
         winner_list = []
         for UR in underlying_rep_list:
@@ -217,17 +232,33 @@ def server(input, output, session):
 
         # Add each constraint as a column with the constraint name as the header and placeholder values for now
         for constraint in constraint_list:
-            eprint(f'current constraint is {constraint}')
-
             temp_column = np.repeat("-", len(final_UR_column))
             viol_list = constraint_viol_dict[f'{constraint}']
 
             for violator in viol_list:
-                eprint(f'current violator is {violator}')
                 if violator in surface_rep_list:
                     temp_column[surface_rep_list.index(violator)] = 1
 
             df[f'{constraint}'] = temp_column
+        
+        # Generate the solution set whenever a change is made
+        @reactive.calc
+        def BYO_gen_solution_set():
+            eprint("In BYO_gen_sol_set function")
+            eprint(f'solution table is {create_solution_table}')
+            return create_solution_table(
+                df,
+                solve_language(df)
+            )
+        
+        # Initiate solve
+        @reactive.effect()
+        @reactive.event(input['BYO_solve'])
+        def solve_user_input():
+            eprint("----------------------------")
+            eprint(f'trying to solve')
+            eprint(f'BYO_gen_solution_set_is {BYO_gen_solution_set}')
+            BYO_solution_text.set(BYO_gen_solution_set())
 
         return df
 
