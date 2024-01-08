@@ -1,0 +1,12 @@
+{
+    "https://api.shinyapps.io": {
+        "server_url": "https://api.shinyapps.io",
+        "filename": "C:\\Users\\t3rmi\\Desktop\\HelloWorld\\Shiny",
+        "app_url": "https://terminallywell.shinyapps.io/shiny_hg/",
+        "app_id": 10881120,
+        "app_guid": null,
+        "title": "Shiny_HG",
+        "app_mode": "python-shiny",
+        "app_store_version": 1
+    }
+}
