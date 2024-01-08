@@ -10,41 +10,41 @@ app_ui = ui.page_fluid(
     ui.navset_card_tab(
         # Create a first tab for simple user uploading
         ui.nav_panel("Upload tableau", 
-               ui.layout_sidebar(
-                    ui.panel_sidebar(
-                        # User upload
-                        ui.input_file("file", "Choose file", button_label='Browse...', placeholder='No file selected'),
+            ui.layout_sidebar(
+                ui.panel_sidebar(
+                    # User upload
+                    ui.input_file("file", "Choose file", button_label='Browse...', placeholder='No file selected'),
 
-                        # Initiate Solve
-                        ui.input_action_button("solve", "Solve!", class_="btn-primary"),
+                    # Initiate Solve
+                    ui.input_action_button("solve", "Solve!", class_="btn-primary"),
 
-                        # Display solution when solved
-                        ui.output_text_verbatim("solutions_output"),
-                    ),
-                    ui.panel_main(
-                        # Display tableau uploaded by user
-                        ui.output_table("user_data_table"),
-                    ),
+                    # Display solution when solved
+                    ui.output_text_verbatim("solutions_output"),
+                ),
+                ui.panel_main(
+                    # Display tableau uploaded by user
+                    ui.output_table("user_data_table"),
+                ),
             ),
         ),
         # Create a second tab for interactivity
         ui.nav("Build your own tableau", 
             ui.layout_sidebar(
-                    ui.panel_sidebar(
-                        # User upload
-                        ui.input_text("input_constraints", "Enter a list of constraints separated by commas"),
-                        ui.input_text("input_URs", "Enter a list of URs separated by commas"),
+                ui.panel_sidebar(
+                    # User upload
+                    ui.input_text("input_constraints", "Enter a list of constraints separated by commas"),
+                    ui.input_text("input_URs", "Enter a list of URs separated by commas"),
 
-                        # Create tab sections for adding SR inputs for each UR input
-                        ui.p("Add surface representations for your URs"),
-                        ui.output_ui("modify_with_input_UR"),
-                        ui.p("Note constraint violations for your SRs"),
-                        ui.output_ui("input_violations"),
-                    ),
-                    ui.panel_main(
-                        # Display tableau uploaded by user
-                        ui.output_data_frame("BYO_user_data_table"),
-                    ),
+                    # Create tab sections for adding SR inputs for each UR input
+                    ui.p("Add surface representations for your URs"),
+                    ui.output_ui("modify_with_input_UR"),
+                    ui.p("Note constraint violations for your SRs"),
+                    ui.output_ui("input_violations"),
+                ),
+                ui.panel_main(
+                    # Display tableau uploaded by user
+                    ui.output_data_frame("BYO_user_data_table"),
+                ),
             ),
         ),
     )
@@ -122,7 +122,7 @@ def server(input, output, session):
         current_URs.set(ss(input['input_URs']()))
 
     # If the user has input any URs, create a tab for each
-    @reactive.effect()
+    # @reactive.effect()
     @render.ui
     def modify_with_input_UR():
         navs = []
@@ -140,7 +140,7 @@ def server(input, output, session):
         return ui.navset_card_tab(*navs)
     
     # If the user has input any URs, create a tab for each
-    @reactive.effect()
+    # @reactive.effect()
     @render.ui
     def input_violations():
         viol_navs = []
@@ -155,7 +155,7 @@ def server(input, output, session):
     
     
     # Dynamically update the table when the user adds input
-    @reactive.effect()
+    # @reactive.effect()
     @render.data_frame
     def BYO_user_data_table():
         df = pd.DataFrame()

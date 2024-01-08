@@ -25,7 +25,7 @@ app_ui = ui.page_sidebar(
             ui.nav_panel(
                 'Build/Edit Tableau',
                 ui.output_ui('select_winner'), # provisional
-                ui.download_button('save', 'Save as CSV') # in development
+                # ui.download_button('save', 'Save as CSV') # in development
             ),
             ui.nav_panel(
                 'Upload CSV',

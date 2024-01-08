@@ -93,3 +93,104 @@ def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
     '''
     Formats tableau as CSV. (In development)
     '''
+
+
+def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame:
+    '''
+    data: {UR: {SR: {HR: {Const: int}}}} or {UR: {SR: {Const: int}}} dictionary
+    winner: {UR: SR} dictionary
+    '''
+    urs = []
+    srs = []
+    obs = []
+    hrs = []
+    consts = {}
+
+    for ur in data:
+        for sr in data[ur]:
+            if hidden:
+                obs_added = False
+                for hr in data[ur][sr]:
+                    urs.append(ur)
+                    srs.append(sr)
+                    if sr == winner[ur] and not obs_added :
+                        obs.append(1)
+                        obs_added = True
+                    else:
+                        obs.append(np.nan)
+                    hrs.append(hr)
+                    for c in data[ur][sr][hr]:
+                        consts.setdefault(c, []).append(data[ur][sr][hr][c])
+            else:
+                urs.append(ur)
+                srs.append(sr)
+                obs.append(1 if sr == winner[ur] else np.nan)
+                for c in data[ur][sr]:
+                    consts.setdefault(c, []).append(data[ur][sr][c])
+    
+    tableau = pd.DataFrame()
+    tableau['UR'] = urs
+    tableau['SR'] = srs
+    tableau['Obs'] = obs
+    if hidden:
+        tableau['HR'] = hrs
+    for c in consts:
+        tableau[c] = consts[c]
+
+    return tableau
+
+# Example data
+data_withHR = {
+    'bada': { # UR layer
+        'bada': { # SR layer
+            'bAda': { # HR layer
+                'c1': 1, # Constraints layer
+                'c2': 0,
+                'c3': 1,
+            },
+            'badA': {
+                'c1': 0,
+                'c2': 0,
+                'c3': 1,
+            },
+        },
+        'pata': {
+            'pAta': {
+                'c1': 1,
+                'c2': 0,
+                'c3': 0,
+            },
+            'patA': {
+                'c1': 0,
+                'c2': 1,
+                'c3': 0,
+            },
+        }
+    },
+    'lolo': {
+        'lolo': {
+            'lOlo': {
+                'c1': 1,
+                'c2': 0,
+                'c3': 1,
+            },
+            'lolO': {
+                'c1': 0,
+                'c2': 0,
+                'c3': 1,
+            },
+        },
+        'roro': {
+            'rOro': {
+                'c1': 1,
+                'c2': 0,
+                'c3': 0,
+            },
+            'rorO': {
+                'c1': 0,
+                'c2': 1,
+                'c3': 0,
+            },
+        }
+    }
+}
