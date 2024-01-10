@@ -8,6 +8,8 @@ import sys, datetime, time
 
 def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
 
+nan = float('nan')
+
 def to_tableau(input_file) -> pd.DataFrame:
     '''
     Converts Shiny input file into DataFrame.
@@ -49,10 +51,11 @@ def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> s
     return text
 
 
-def solution_simple(data: pd.DataFrame, solutions: list[list[float]]) -> str:
-    if len(solutions) == 0:
+def solution_simple(solutions: list[list[float]]) -> str:
+    num = len(solutions)
+    if num == 0:
         return 'No solution found!'
-    return f'{len(solutions)} solution{"" if len(solutions) == 1 else "s"} found.\n'
+    return f'{num} solution{"" if num == 1 else "s"} found.\n'
 
 
 def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
@@ -68,7 +71,7 @@ def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
     else:
         rows = new_data.iloc[:, 3:].iterrows()
 
-    new_data['H'] = [sum(-viol * weight for viol, weight in zip(row[1], solution)) for row in rows]
+    new_data['H'] = [sum(-viol * weight for viol, weight in zip(row, solution)) for index, row in rows]
 
     return new_data
 
@@ -86,7 +89,7 @@ def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
     '''
     mask = (data['SR'] == winner) & (~data['SR'].duplicated(keep='first'))
     data.loc[(data['UR'] == ur) & mask, 'Obs'] = 1
-    data.loc[(data['UR'] == ur) & ~mask, 'Obs'] = np.NaN
+    data.loc[(data['UR'] == ur) & ~mask, 'Obs'] = nan
 
 
 def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
@@ -94,6 +97,24 @@ def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
     Formats tableau as CSV. (In development)
     '''
 
+def tableau_to_dict(tableau: pd.DataFrame) -> tuple[dict, dict]:
+    '''
+    Converts `DataFrame` tableau into `dict` data used in `build_tableau()`.
+    '''
+    data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+    winner = {}
+    for index, row in tableau.iterrows():
+        if 'HR' in tableau:
+            for c in row.keys()[4:]:
+                data[row['UR']][row['SR']][row['HR']][c] = row[c]
+        else:
+            for c in row.keys()[3:]:
+                data[row['UR']][row['SR']][c] = row[c] # type: ignore
+        
+        if row['Obs'] == 1:
+            winner[row['UR']] = row['SR']
+    
+    return data, winner
 
 def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame:
     '''
@@ -117,14 +138,14 @@ def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame
                         obs.append(1)
                         obs_added = True
                     else:
-                        obs.append(np.nan)
+                        obs.append(nan)
                     hrs.append(hr)
                     for c in data[ur][sr][hr]:
                         consts.setdefault(c, []).append(data[ur][sr][hr][c])
             else:
                 urs.append(ur)
                 srs.append(sr)
-                obs.append(1 if sr == winner[ur] else np.nan)
+                obs.append(1 if sr == winner[ur] else nan)
                 for c in data[ur][sr]:
                     consts.setdefault(c, []).append(data[ur][sr][c])
     
@@ -140,7 +161,7 @@ def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame
     return tableau
 
 # Example data
-data_withHR = {
+data_WithHR = {
     'bada': { # UR layer
         'bada': { # SR layer
             'bAda': { # HR layer
@@ -191,6 +212,19 @@ data_withHR = {
                 'c2': 1,
                 'c3': 0,
             },
+        }
+    }
+}
+
+data_NoHR = {
+    'bada': {
+        'bada': {
+            'c1': 1,
+            'c2': 0,
+        },
+        'pata': {
+            'c1': 0,
+            'c2': 1,
         }
     }
 }
