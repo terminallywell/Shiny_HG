@@ -1,14 +1,15 @@
 '''Packages and shared functions'''
 
 from shiny import App, render, reactive, ui
+from shiny.session._session import Inputs
 from pyHG import *
+
+nan = float('nan')
 
 # For debugging only
 import sys, datetime, time
-
 def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
 
-nan = float('nan')
 
 def to_tableau(input_file) -> pd.DataFrame:
     '''
@@ -31,7 +32,7 @@ def ss(input: str, sep: str = ',') -> list[str]:
     '''
     return [item.strip() for item in input.split(sep) if item.strip()]
 
-
+# DEPRECATED
 def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> str:
     '''
     Solution list pretty-formatter.
@@ -51,13 +52,13 @@ def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> s
     return text
 
 
-def solution_simple(solutions: list[list[float]]) -> str:
+def solution_text(solutions: list[list[float]]) -> str:
     num = len(solutions)
     if num == 0:
         return 'No solution found!'
     return f'{num} solution{"" if num == 1 else "s"} found.\n'
 
-
+# DEPRECATED
 def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
     '''
     Returns a copy of tableau with weights added to constraint column names as well as a Harmony column.
@@ -75,14 +76,14 @@ def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
 
     return new_data
 
-
+# DEPRECATED
 def get_winner(data: pd.DataFrame, ur: str) -> str:
     '''
     Returns the winning SR of the given UR.
     '''
     return data.loc[(data['UR'] == ur) & (data['Obs'] == 1), 'SR'].to_list()[0]
 
-
+# DEPRECATED
 def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
     '''
     Changes the winning SR of the given UR in the tableau.
@@ -92,10 +93,31 @@ def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
     data.loc[(data['UR'] == ur) & ~mask, 'Obs'] = nan
 
 
+def render_ui(tag, id, *args, **kwargs):
+    '''
+    Attaches a dynamic UI element to another.
+    
+    Basically, you can use `add_ui(tag, ui_id)` in place of `def ui_id(): return tag`,
+    and `ui.p(id=ui_id)` (or any element with an id parameter) in place of `ui.output_ui(ui_id)`.
+    
+    ### Parameters
+    * `tag` The UI element to be attached.
+    * `id` The ID of the UI element to attach your UI element to.
+    '''
+    div = str(hash(id))
+    ui.remove_ui('#' + div)
+    ui.insert_ui(ui.div(tag, id=div), '#' + id, *args, **kwargs)
+
+
 def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
     '''
-    Formats tableau as CSV. (In development)
+    Formats tableau as CSV. (TODO: In development)
     '''
+
+
+def input_to_dict(input: Inputs) -> tuple[dict, dict]:
+    ...
+
 
 def tableau_to_dict(tableau: pd.DataFrame) -> tuple[dict, dict]:
     '''
@@ -116,8 +138,10 @@ def tableau_to_dict(tableau: pd.DataFrame) -> tuple[dict, dict]:
     
     return data, winner
 
+
 def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame:
     '''
+    TODO: docstring
     data: {UR: {SR: {HR: {Const: int}}}} or {UR: {SR: {Const: int}}} dictionary
     winner: {UR: SR} dictionary
     '''
