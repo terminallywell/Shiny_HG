@@ -1,7 +1,6 @@
 '''Packages and shared functions'''
 
 from shiny import App, render, reactive, ui
-from shiny.session._session import Inputs
 from pyHG import *
 
 nan = float('nan')
@@ -58,7 +57,7 @@ def solution_text(solutions: list[list[float]]) -> str:
         return 'No solution found!'
     return f'{num} solution{"" if num == 1 else "s"} found.\n'
 
-# DEPRECATED
+
 def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
     '''
     Returns a copy of tableau with weights added to constraint column names as well as a Harmony column.
@@ -76,12 +75,24 @@ def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
 
     return new_data
 
-# DEPRECATED
-def get_winner(data: pd.DataFrame, ur: str) -> str:
+
+def get_winner(data: pd.DataFrame, ur: str) -> str | None:
     '''
     Returns the winning SR of the given UR.
     '''
-    return data.loc[(data['UR'] == ur) & (data['Obs'] == 1), 'SR'].to_list()[0]
+    try:
+        return data.loc[(data['UR'] == ur) & (data['Obs'] == 1), 'SR'].to_list()[0]
+    except IndexError:
+        pass
+
+
+def viols(data: pd.DataFrame, cName: str, cand: str) -> int:
+    '''Modified `Con()` function in pyHG.'''
+    colname = 'HR' if 'HR' in data.columns else 'SR'
+    try:
+        return int(data.loc[data[colname]==cand, cName].values[0])
+    except (KeyError, IndexError):
+        return 0
 
 # DEPRECATED
 def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
@@ -115,10 +126,7 @@ def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
     '''
 
 
-def input_to_dict(input: Inputs) -> tuple[dict, dict]:
-    ...
-
-
+# DEPRECATED
 def tableau_to_dict(tableau: pd.DataFrame) -> tuple[dict, dict]:
     '''
     Converts `DataFrame` tableau into `dict` data used in `build_tableau()`.
@@ -138,7 +146,7 @@ def tableau_to_dict(tableau: pd.DataFrame) -> tuple[dict, dict]:
     
     return data, winner
 
-
+# DEPRECATED
 def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame:
     '''
     TODO: docstring
@@ -158,7 +166,7 @@ def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame
                 for hr in data[ur][sr]:
                     urs.append(ur)
                     srs.append(sr)
-                    if sr == winner[ur] and not obs_added :
+                    if sr == winner[ur] and not obs_added:
                         obs.append(1)
                         obs_added = True
                     else:
@@ -183,72 +191,3 @@ def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame
         tableau[c] = consts[c]
 
     return tableau
-
-# Example data
-data_WithHR = {
-    'bada': { # UR layer
-        'bada': { # SR layer
-            'bAda': { # HR layer
-                'c1': 1, # Constraints layer
-                'c2': 0,
-                'c3': 1,
-            },
-            'badA': {
-                'c1': 0,
-                'c2': 0,
-                'c3': 1,
-            },
-        },
-        'pata': {
-            'pAta': {
-                'c1': 1,
-                'c2': 0,
-                'c3': 0,
-            },
-            'patA': {
-                'c1': 0,
-                'c2': 1,
-                'c3': 0,
-            },
-        }
-    },
-    'lolo': {
-        'lolo': {
-            'lOlo': {
-                'c1': 1,
-                'c2': 0,
-                'c3': 1,
-            },
-            'lolO': {
-                'c1': 0,
-                'c2': 0,
-                'c3': 1,
-            },
-        },
-        'roro': {
-            'rOro': {
-                'c1': 1,
-                'c2': 0,
-                'c3': 0,
-            },
-            'rorO': {
-                'c1': 0,
-                'c2': 1,
-                'c3': 0,
-            },
-        }
-    }
-}
-
-data_NoHR = {
-    'bada': {
-        'bada': {
-            'c1': 1,
-            'c2': 0,
-        },
-        'pata': {
-            'c1': 0,
-            'c2': 1,
-        }
-    }
-}
