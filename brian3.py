@@ -2,11 +2,16 @@
 Hopefully closer to the final version (work in progress)
 
 ### Yet to be implemented:
-- Input UI with HR implemented
+- Input UI with HR enabled
 - Solving tableau & applying solution
 
 ### In the future:
-- refine reactive dependency (ss(input['input_urs']()) or data()?)
+- Refine reactive dependency (ss(input['input_urs']()) or data()?)
+- Manicules instead of Obs column
+- Credits
+- Dark mode/light mode
+- Hide empty navsets and radio buttons
+- Click row to set as winner
 '''
 
 from common import *
@@ -17,11 +22,13 @@ app_ui = ui.page_sidebar(
     ui.sidebar(
         ui.panel_title('Shiny HG'),
         ui.markdown('**Build & Edit Tableau**'),
-        ui.input_file('file', 'Upload CSV'),
+        ui.input_file('file', 'Upload existing tableau (CSV)'),
+        ui.hr(),
         ui.output_ui('ui_cs'),
         ui.output_ui('ui_urs'),
         ui.output_ui('ui_hr_check'),
         ui.output_ui('ui_srs'),
+        ui.download_button('save', 'Save tableau as CSV (Not working yet)'),
 
         open='always',
         width='30%',
@@ -34,6 +41,8 @@ app_ui = ui.page_sidebar(
     ui.output_text('solve_result'),
     ui.output_ui('select_solution'),
     ui.output_data_frame('render_tableau'),
+    
+    shinyswatch.theme.journal(),
 )
 
 
@@ -89,33 +98,33 @@ def server(input, output, session):
                         value=uploaded,
                         placeholder=f'Enter surface representations (candidates) of {ur}, separated by commas'
                     ),
-                    ui.p(id=f'ui_{i_ur}_viols'),
-                    ui.p(id=f'ui_{i_ur}_winner')
+                    ui.output_ui(id=f'ui_{i_ur}_viols'),
+                    ui.output_ui(id=f'ui_{i_ur}_winner')
                 )
             )
-        return ui.navset_card_underline(*navs)
+        return ui.navset_card_tab(*navs)
     
     @reactive.effect
-    def _():
+    def ui_viols():
         for i_ur, ur in enumerate(ss(input['input_urs']())):
             navs = []
             for i_sr, sr in enumerate(ss(input[f'input_{i_ur}_srs']())):
                 nums = []
                 for i_c, c in enumerate(ss(input['input_cs']())):
-                    uploaded = viols(to_tableau(input['file']()), c, sr) if input['file']() else 0
+                    uploaded = get_viols(to_tableau(input['file']()), c, sr) if input['file']() else 0
                     nums.append(
                         ui.input_numeric(
                             f'input_{i_ur}_{i_sr}_viols_{i_c}',
-                            f'Enter {c} violation count of {sr}',
+                            ui.markdown(f'Enter **{c}** violation count'),
                             uploaded,
                             min=0
                         )
                     )
                 navs.append(ui.nav_panel(sr, nums))
-            render_ui(ui.navset_card_underline(*navs), f'ui_{i_ur}_viols')
+            render_ui(ui.navset_card_tab(*navs), f'ui_{i_ur}_viols')
     
     @reactive.effect
-    def _():
+    def ui_winner():
         for i_ur, ur in enumerate(ss(input['input_urs']())):
             uploaded = get_winner(to_tableau(input['file']()), ur) if input['file']() else None
             buttons = ui.input_radio_buttons(
@@ -125,16 +134,12 @@ def server(input, output, session):
                 selected=uploaded
             ) if input[f'input_{i_ur}_srs']() else None
             render_ui(buttons, f'ui_{i_ur}_winner')
-
-
-    ### OUTPUT UI RENDER FNS ###
-    # for various tests
-    @render.text
-    def test_output():
-        return
     
-    @render.data_frame
-    def render_tableau():
+
+    ### INPUT PROCESSING FNS ###
+    # Build tableau DataFrame from inputs
+    @reactive.calc
+    def build_tableau():
         urs = []
         srs = []
         obs = []
@@ -172,7 +177,20 @@ def server(input, output, session):
         for c in cs:
             tableau[c] = cs[c]
 
-        return render.DataGrid(tidy_tableaux(tableau), height=None)
+        return tableau
+    
+
+    ### OUTPUT UI RENDER FNS ###
+    # For debugging purposes
+    @render.text
+    def test_output():
+        return req(input['render_tableau_selected_rows']())
+    
+    # Render tableau, with solution applied if applicable
+    @output
+    @render.data_frame()
+    def render_tableau():
+        return render.DataGrid(tidy_tableaux(build_tableau()), row_selection_mode='none', height=None)
 
 
 app = App(app_ui, server)

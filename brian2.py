@@ -87,7 +87,7 @@ def server(input, output, session):
     def _():
         if input['file']():
             solutions.set(solve_language(tableau()))
-            sol_text.set(solution_simple(solutions()))
+            sol_text.set(solution_text(solutions()))
         else:
             ui.modal_show(ui.modal('No tableau found.'))
 

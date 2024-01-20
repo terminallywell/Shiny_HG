@@ -1,7 +1,8 @@
 '''Packages and shared functions'''
 
-from shiny import App, render, reactive, ui
+from shiny import App, render, reactive, ui, req
 from pyHG import *
+import shinyswatch
 
 nan = float('nan')
 
@@ -11,9 +12,7 @@ def eprint(*args, **kwargs): print(*args, file=sys.stderr, flush=True, **kwargs)
 
 
 def to_tableau(input_file) -> pd.DataFrame:
-    '''
-    Converts Shiny input file into DataFrame.
-    '''
+    '''Converts Shiny input file into DataFrame.'''
     return read_file(input_file[0]["datapath"][:-4])
 
 
@@ -58,35 +57,31 @@ def solution_text(solutions: list[list[float]]) -> str:
     return f'{num} solution{"" if num == 1 else "s"} found.\n'
 
 
-def apply_solution(data: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
-    '''
-    Returns a copy of tableau with weights added to constraint column names as well as a Harmony column.
-    '''
-    new_data = data.rename(
-        columns={const_name: const_name + f' : {int(weight)}' for const_name, weight in zip(get_constraint_names(data), solution)}
+def apply_solution(tableau: pd.DataFrame, solution: list[float]) -> pd.DataFrame:
+    '''Returns a copy of tableau with weights added to constraint column names as well as a Harmony column.'''
+    new_tableau = tableau.rename(
+        columns={const_name: const_name + f' : {int(weight)}' for const_name, weight in zip(get_constraint_names(tableau), solution)}
     )
 
-    if 'HR' in new_data.columns:
-        rows = new_data.iloc[:, 4:].iterrows()
+    if 'HR' in new_tableau.columns:
+        rows = new_tableau.iloc[:, 4:].iterrows()
     else:
-        rows = new_data.iloc[:, 3:].iterrows()
+        rows = new_tableau.iloc[:, 3:].iterrows()
 
-    new_data['H'] = [sum(-viol * weight for viol, weight in zip(row, solution)) for index, row in rows]
+    new_tableau['H'] = [sum(-viol * weight for viol, weight in zip(row, solution)) for index, row in rows]
 
-    return new_data
+    return new_tableau
 
 
 def get_winner(data: pd.DataFrame, ur: str) -> str | None:
-    '''
-    Returns the winning SR of the given UR.
-    '''
+    '''Returns the winning SR of the given UR.'''
     try:
         return data.loc[(data['UR'] == ur) & (data['Obs'] == 1), 'SR'].to_list()[0]
     except IndexError:
         pass
 
 
-def viols(data: pd.DataFrame, cName: str, cand: str) -> int:
+def get_viols(data: pd.DataFrame, cName: str, cand: str) -> int:
     '''Modified `Con()` function in pyHG.'''
     colname = 'HR' if 'HR' in data.columns else 'SR'
     try:
@@ -108,22 +103,29 @@ def render_ui(tag, id, *args, **kwargs):
     '''
     Attaches a dynamic UI element to another.
     
-    Basically, you can use `add_ui(tag, ui_id)` in place of `def ui_id(): return tag`,
-    and `ui.p(id=ui_id)` (or any element with an id parameter) in place of `ui.output_ui(ui_id)`.
+    Instead of writing:
+    ```
+    @render.ui
+    def ui_id():
+        return tag
+    ```
+    you can use:
+    ```
+    @reactive.effect
+    def _():
+        render_ui(tag, 'ui_id')
+    ```
     
     ### Parameters
     * `tag` The UI element to be attached.
-    * `id` The ID of the UI element to attach your UI element to.
+    * `id` The ID of the UI element to attach/insert your UI element to.
     '''
-    div = str(hash(id))
-    ui.remove_ui('#' + div)
-    ui.insert_ui(ui.div(tag, id=div), '#' + id, *args, **kwargs)
+    ui.remove_ui('#div_' + id)
+    ui.insert_ui(ui.div(tag, id='div_' + id), '#' + id, *args, **kwargs)
 
 
 def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
-    '''
-    Formats tableau as CSV. (TODO: In development)
-    '''
+    '''Formats tableau as CSV. (TODO: In development)'''
 
 
 # DEPRECATED
