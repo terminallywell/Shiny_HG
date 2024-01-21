@@ -2,16 +2,28 @@
 Hopefully closer to the final version (work in progress)
 
 ### Yet to be implemented:
-- Input UI with HR enabled
 - Solving tableau & applying solution
+    - Error handling (incomplete tableau)
+
+### Bugs:
+1. no radio button selected by default if file uploaded but new ur/sr added
+1. Uploading tableau sorts entries alphabetically (intentional?)
+1. "UnboundLocalError: cannot access local variable 'winner_id' where it is not associated with a value"
+   in add_tableau when solving language
+   Last 2 bugs likely have something to do with `np.unique()` used in `gen_SR()` etc. sorting items
 
 ### In the future:
 - Refine reactive dependency (ss(input['input_urs']()) or data()?)
 - Manicules instead of Obs column
 - Credits
-- Dark mode/light mode
+- Themes & dark mode/light mode
 - Hide empty navsets and radio buttons
 - Click row to set as winner
+
+### Technical limitations:
+- Editing a text input resets all other inputs below (due to the way `render_ui()` is implemented)
+- Extremely laggy especially with HRs
+    - Try modules?
 '''
 
 from common import *
@@ -20,14 +32,13 @@ from common import *
 app_ui = ui.page_sidebar(
     ### INPUT PORTION (SIDEBAR) ###
     ui.sidebar(
-        ui.panel_title('Shiny HG'),
         ui.markdown('**Build & Edit Tableau**'),
         ui.input_file('file', 'Upload existing tableau (CSV)'),
         ui.hr(),
         ui.output_ui('ui_cs'),
         ui.output_ui('ui_urs'),
         ui.output_ui('ui_hr_check'),
-        ui.output_ui('ui_srs'),
+        ui.output_ui('ui_navset_layer1'),
         ui.download_button('save', 'Save tableau as CSV (Not working yet)'),
 
         open='always',
@@ -43,12 +54,14 @@ app_ui = ui.page_sidebar(
     ui.output_data_frame('render_tableau'),
     
     shinyswatch.theme.journal(),
+
+    title='Shiny HG',
 )
 
 
 def server(input, output, session):
     ### REACTIVE VALUES ###
-    
+    solutions = reactive.Value()
 
     ### INPUT UI RENDER FNS ###
     @render.ui
@@ -84,7 +97,8 @@ def server(input, output, session):
             ui.update_switch('input_hr_check', value='HR' in to_tableau(input['file']()).columns)
     
     @render.ui
-    def ui_srs():
+    def ui_navset_layer1():
+        '''1st navset layer, where SRs of each UR are entered and winners selected.'''
         navs = []
         for i_ur, ur in enumerate(ss(input['input_urs']())):
             uploaded = ', '.join(gen_SR(to_tableau(input['file']()), ur)) if input['file']() else ''
@@ -98,35 +112,78 @@ def server(input, output, session):
                         value=uploaded,
                         placeholder=f'Enter surface representations (candidates) of {ur}, separated by commas'
                     ),
-                    ui.output_ui(id=f'ui_{i_ur}_viols'),
-                    ui.output_ui(id=f'ui_{i_ur}_winner')
+                    ui.output_ui(f'ui_{i_ur}_navset_layer2'),
+                    ui.output_ui(f'ui_{i_ur}_winner')
                 )
             )
         return ui.navset_card_tab(*navs)
     
     @reactive.effect
-    def ui_viols():
+    def ui_navset_layer2():
+        '''2nd navset layer, where violation counts (if no HR) or HRs (if HR) of each SR are entered.'''
         for i_ur, ur in enumerate(ss(input['input_urs']())):
             navs = []
             for i_sr, sr in enumerate(ss(input[f'input_{i_ur}_srs']())):
-                nums = []
-                for i_c, c in enumerate(ss(input['input_cs']())):
-                    uploaded = get_viols(to_tableau(input['file']()), c, sr) if input['file']() else 0
-                    nums.append(
-                        ui.input_numeric(
-                            f'input_{i_ur}_{i_sr}_viols_{i_c}',
-                            ui.markdown(f'Enter **{c}** violation count'),
-                            uploaded,
-                            min=0
+
+                ## HR ENABLED ##
+                if input['input_hr_check'](): # fill navset with HR inputs
+                    uploaded = ''
+                    if input['file']() and 'HR' in to_tableau(input['file']()).columns:
+                        uploaded = ', '.join(get_HRs(to_tableau(input['file']()), ur, sr))
+                    
+                    uis = [
+                        ui.input_text_area(
+                            f'input_{i_ur}_{i_sr}_hrs',
+                            f'Enter HRs of {sr}',
+                            value=uploaded,
+                            placeholder=f'Enter hidden representations of {sr}, separated by commas'
+                        ),
+                        ui.output_ui(f'ui_{i_ur}_{i_sr}_navset_layer3')
+                    ]
+
+                ## HR DISABLED ##
+                else: # fill navset with SR violation inputs
+                    uis = []
+                    for i_c, c in enumerate(ss(input['input_cs']())):
+                        uploaded = get_viols(to_tableau(input['file']()), c, ur, sr) if input['file']() else 0
+                        uis.append(
+                            ui.input_numeric(
+                                f'input_{i_ur}_{i_sr}_viols_{i_c}',
+                                ui.markdown(f'Enter **{c}** violation count'),
+                                uploaded,
+                                min=0
+                            )
                         )
-                    )
-                navs.append(ui.nav_panel(sr, nums))
-            render_ui(ui.navset_card_tab(*navs), f'ui_{i_ur}_viols')
+
+                navs.append(ui.nav_panel(sr, uis))
+            render_ui(ui.navset_card_tab(*navs), f'ui_{i_ur}_navset_layer2')
+
+    @reactive.effect
+    def ui_navset_layer3():
+        '''3rd navset layer, where violation counts of each HR are entered (only shows when HR enabled).'''
+        if input['input_hr_check'](): # this line is only here for reactive purposes
+            for i_ur, ur in enumerate(ss(input['input_urs']())):
+                for i_sr, sr in enumerate(ss(input[f'input_{i_ur}_srs']())):
+                    navs = []
+                    for i_hr, hr in enumerate(ss(input[f'input_{i_ur}_{i_sr}_hrs']())):
+                        uis = []
+                        for i_c, c in enumerate(ss(input['input_cs']())):
+                            uploaded = get_viols(to_tableau(input['file']()), c, ur, sr, hr) if input['file']() else 0
+                            uis.append(
+                                ui.input_numeric(
+                                    f'input_{i_ur}_{i_sr}_{i_hr}_viols_{i_c}',
+                                    ui.markdown(f'Enter **{c}** violation count'),
+                                    uploaded,
+                                    min=0
+                                )
+                            )
+                        navs.append(ui.nav_panel(hr, uis))
+                    render_ui(ui.navset_card_tab(*navs), f'ui_{i_ur}_{i_sr}_navset_layer3')
     
     @reactive.effect
     def ui_winner():
         for i_ur, ur in enumerate(ss(input['input_urs']())):
-            uploaded = get_winner(to_tableau(input['file']()), ur) if input['file']() else None
+            uploaded = get_winner(to_tableau(input['file']()), ur) if input['file']() else None # BUG 1
             buttons = ui.input_radio_buttons(
                 f'input_{i_ur}_winner',
                 f'Select winner of {ur}',
@@ -137,9 +194,9 @@ def server(input, output, session):
     
 
     ### INPUT PROCESSING FNS ###
-    # Build tableau DataFrame from inputs
     @reactive.calc
     def build_tableau():
+        '''Builds tableau `DataFrame` from inputs.'''
         urs = []
         srs = []
         obs = []
@@ -178,18 +235,25 @@ def server(input, output, session):
             tableau[c] = cs[c]
 
         return tableau
+
+    @reactive.effect
+    @reactive.event(input['solve'])
+    def solver():
+        solutions.set(solve_language(build_tableau()))
     
 
     ### OUTPUT UI RENDER FNS ###
     # For debugging purposes
     @render.text
     def test_output():
-        return req(input['render_tableau_selected_rows']())
+        return f'{build_tableau().__repr__()}'
+        # return req(input['render_tableau_selected_rows']())
     
-    # Render tableau, with solution applied if applicable
+    
     @output
     @render.data_frame()
     def render_tableau():
+        '''Renders tableau, with solution applied if available.'''
         return render.DataGrid(tidy_tableaux(build_tableau()), row_selection_mode='none', height=None)
 
 

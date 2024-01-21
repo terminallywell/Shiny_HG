@@ -1,6 +1,6 @@
 '''Packages and shared functions'''
 
-from shiny import App, render, reactive, ui, req
+from shiny import App, render, reactive, ui, module, req
 from pyHG import *
 import shinyswatch
 
@@ -30,24 +30,31 @@ def ss(input: str, sep: str = ',') -> list[str]:
     '''
     return [item.strip() for item in input.split(sep) if item.strip()]
 
-# DEPRECATED
-def create_solution_table(data: pd.DataFrame, solutions: list[list[float]]) -> str:
-    '''
-    Solution list pretty-formatter.
-    '''
-    if len(solutions) == 0:
-        return 'No solution found!'
-    
-    names = get_constraint_names(data)
 
-    text = f'{len(solutions)} solution{"" if len(solutions) == 1 else "s"} found:\n'
-
-    for i, solution in enumerate(solutions): 
-        text += f'\n[Solution {i + 1}]\n'
-        for name, weight in zip(names, solution):
-            text += f'{name}: {int(weight)}\n'
+def render_ui(tag, id, *args, **kwargs):
+    '''
+    Attaches a dynamic UI element to another.
     
-    return text
+    Instead of writing:
+    ```
+    @render.ui
+    def ui_id():
+        return tag
+    ```
+    you can do:
+    ```
+    @reactive.effect
+    def _():
+        render_ui(tag, 'ui_id')
+    ```
+    
+    ### Parameters
+    * `tag` The UI element to be attached.
+    * `id` The ID of the UI element (usually `ui.output_ui()`) to attach/insert your UI element to.
+    '''
+    eprint('render_ui called')
+    ui.remove_ui('#div_' + id)
+    ui.insert_ui(ui.div(tag, id='div_' + id), '#' + id, *args, **kwargs)
 
 
 def solution_text(solutions: list[list[float]]) -> str:
@@ -73,123 +80,30 @@ def apply_solution(tableau: pd.DataFrame, solution: list[float]) -> pd.DataFrame
     return new_tableau
 
 
-def get_winner(data: pd.DataFrame, ur: str) -> str | None:
+def get_winner(tableau: pd.DataFrame, ur: str) -> str | None:
     '''Returns the winning SR of the given UR.'''
     try:
-        return data.loc[(data['UR'] == ur) & (data['Obs'] == 1), 'SR'].to_list()[0]
+        return tableau.loc[(tableau['UR'] == ur) & (tableau['Obs'] == 1), 'SR'].values[0]
     except IndexError:
         pass
 
 
-def get_viols(data: pd.DataFrame, cName: str, cand: str) -> int:
-    '''Modified `Con()` function in pyHG.'''
-    colname = 'HR' if 'HR' in data.columns else 'SR'
+def get_viols(tableau: pd.DataFrame, c: str, ur: str, sr: str, hr: str | None = None) -> int:
+    '''
+    Modified version pyHG's `Con()` function with:
+    - Taylored error handling
+    - Addressing duplicate SR/HR cases
+    '''
     try:
-        return int(data.loc[data[colname]==cand, cName].values[0])
+        return int(tableau.loc[(tableau['UR'] == ur) & (tableau['SR'] == sr) & (tableau['HR'] == hr if hr else True), c].values[0])
     except (KeyError, IndexError):
         return 0
 
-# DEPRECATED
-def change_winner(data: pd.DataFrame, ur: str, winner: str) -> None:
-    '''
-    Changes the winning SR of the given UR in the tableau.
-    '''
-    mask = (data['SR'] == winner) & (~data['SR'].duplicated(keep='first'))
-    data.loc[(data['UR'] == ur) & mask, 'Obs'] = 1
-    data.loc[(data['UR'] == ur) & ~mask, 'Obs'] = nan
+
+def get_HRs(tableau: pd.DataFrame, ur: str, sr: str) -> list[str]:
+    '''Modified version of pyHG's `gen_HR()` function, addressing duplicate SR cases (different URs, same SR).'''
+    return tableau.loc[(tableau['UR'] == ur) & (tableau['SR'] == sr), 'HR'].tolist()
 
 
-def render_ui(tag, id, *args, **kwargs):
-    '''
-    Attaches a dynamic UI element to another.
-    
-    Instead of writing:
-    ```
-    @render.ui
-    def ui_id():
-        return tag
-    ```
-    you can use:
-    ```
-    @reactive.effect
-    def _():
-        render_ui(tag, 'ui_id')
-    ```
-    
-    ### Parameters
-    * `tag` The UI element to be attached.
-    * `id` The ID of the UI element to attach/insert your UI element to.
-    '''
-    ui.remove_ui('#div_' + id)
-    ui.insert_ui(ui.div(tag, id='div_' + id), '#' + id, *args, **kwargs)
-
-
-def tableau_to_csv(data: pd.DataFrame, *args, **kwargs) -> None:
+def tableau_to_csv(tableau: pd.DataFrame, *args, **kwargs) -> None:
     '''Formats tableau as CSV. (TODO: In development)'''
-
-
-# DEPRECATED
-def tableau_to_dict(tableau: pd.DataFrame) -> tuple[dict, dict]:
-    '''
-    Converts `DataFrame` tableau into `dict` data used in `build_tableau()`.
-    '''
-    data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
-    winner = {}
-    for index, row in tableau.iterrows():
-        if 'HR' in tableau:
-            for c in row.keys()[4:]:
-                data[row['UR']][row['SR']][row['HR']][c] = row[c]
-        else:
-            for c in row.keys()[3:]:
-                data[row['UR']][row['SR']][c] = row[c] # type: ignore
-        
-        if row['Obs'] == 1:
-            winner[row['UR']] = row['SR']
-    
-    return data, winner
-
-# DEPRECATED
-def build_tableau(data: dict, winner: dict, hidden: bool = True) -> pd.DataFrame:
-    '''
-    TODO: docstring
-    data: {UR: {SR: {HR: {Const: int}}}} or {UR: {SR: {Const: int}}} dictionary
-    winner: {UR: SR} dictionary
-    '''
-    urs = []
-    srs = []
-    obs = []
-    hrs = []
-    consts = {}
-
-    for ur in data:
-        for sr in data[ur]:
-            if hidden:
-                obs_added = False
-                for hr in data[ur][sr]:
-                    urs.append(ur)
-                    srs.append(sr)
-                    if sr == winner[ur] and not obs_added:
-                        obs.append(1)
-                        obs_added = True
-                    else:
-                        obs.append(nan)
-                    hrs.append(hr)
-                    for c in data[ur][sr][hr]:
-                        consts.setdefault(c, []).append(data[ur][sr][hr][c])
-            else:
-                urs.append(ur)
-                srs.append(sr)
-                obs.append(1 if sr == winner[ur] else nan)
-                for c in data[ur][sr]:
-                    consts.setdefault(c, []).append(data[ur][sr][c])
-    
-    tableau = pd.DataFrame()
-    tableau['UR'] = urs
-    tableau['SR'] = srs
-    tableau['Obs'] = obs
-    if hidden:
-        tableau['HR'] = hrs
-    for c in consts:
-        tableau[c] = consts[c]
-
-    return tableau
