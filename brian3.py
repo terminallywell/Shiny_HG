@@ -1,29 +1,25 @@
 '''
-Hopefully closer to the final version (work in progress)
+Almost fully functioning version
 
 ### Yet to be implemented:
-- Solving tableau & applying solution
-    - Error handling (incomplete tableau)
+- Solver error handling (incomplete tableau)
 
 ### Bugs:
 1. no radio button selected by default if file uploaded but new ur/sr added
-1. Uploading tableau sorts entries alphabetically (intentional?)
-1. "UnboundLocalError: cannot access local variable 'winner_id' where it is not associated with a value"
-   in add_tableau when solving language
-   Last 2 bugs likely have something to do with `np.unique()` used in `gen_SR()` etc. sorting items
 
 ### In the future:
-- Refine reactive dependency (ss(input['input_urs']()) or data()?)
+- Refine reactive dependency (ss(input['input_urs']()) or urs()?)
 - Manicules instead of Obs column
 - Credits
 - Themes & dark mode/light mode
 - Hide empty navsets and radio buttons
 - Click row to set as winner
+- Integrate `common.py` into main code file
 
 ### Technical limitations:
 - Editing a text input resets all other inputs below (due to the way `render_ui()` is implemented)
 - Extremely laggy especially with HRs
-    - Try modules?
+    - Try modules instead of `redner_ui()`?
 '''
 
 from common import *
@@ -33,7 +29,7 @@ app_ui = ui.page_sidebar(
     ### INPUT PORTION (SIDEBAR) ###
     ui.sidebar(
         ui.markdown('**Build & Edit Tableau**'),
-        ui.input_file('file', 'Upload existing tableau (CSV)'),
+        ui.input_file('file', 'Upload existing tableau (CSV)', accept=['.csv', '.txt']),
         ui.hr(),
         ui.output_ui('ui_cs'),
         ui.output_ui('ui_urs'),
@@ -55,13 +51,14 @@ app_ui = ui.page_sidebar(
     
     shinyswatch.theme.journal(),
 
-    title='Shiny HG',
+    title=ui.div('Shiny HG', class_="bslib-page-title"),
 )
 
 
 def server(input, output, session):
     ### REACTIVE VALUES ###
     solutions = reactive.Value()
+    sol_text = reactive.Value()
 
     ### INPUT UI RENDER FNS ###
     @render.ui
@@ -195,7 +192,7 @@ def server(input, output, session):
 
     ### INPUT PROCESSING FNS ###
     @reactive.calc
-    def build_tableau():
+    def build_tableau() -> pd.DataFrame:
         '''Builds tableau `DataFrame` from inputs.'''
         urs = []
         srs = []
@@ -240,21 +237,49 @@ def server(input, output, session):
     @reactive.event(input['solve'])
     def solver():
         solutions.set(solve_language(build_tableau()))
+        sol_text.set(solution_text(solutions()))
+
+    @reactive.effect
+    def resetter():
+        '''Resets solutions and solution text every time tableau is modified.'''
+        build_tableau()
+        solutions.set([])
+        sol_text.set('')
     
 
     ### OUTPUT UI RENDER FNS ###
     # For debugging purposes
     @render.text
     def test_output():
-        return f'{build_tableau().__repr__()}'
+        pass
+        # return f'{build_tableau().__repr__()}'
         # return req(input['render_tableau_selected_rows']())
+
+    @render.text
+    def solve_result():
+        '''Renders solve results.'''
+        return sol_text()
     
-    
-    @output
+    @render.ui
+    def select_solution():
+        if len(solutions()) > 1: # show only if tableau is solved (i.e. at least one solution is found)
+            return ui.input_radio_buttons(
+                'ui_sol_index',
+                'Select solution to apply:',
+                {str(i): f'Solution {i + 1}' for i, _ in enumerate(solutions())},
+                inline=False
+            )
+
     @render.data_frame()
     def render_tableau():
         '''Renders tableau, with solution applied if available.'''
-        return render.DataGrid(tidy_tableaux(build_tableau()), row_selection_mode='none', height=None)
+        if solutions(): # if tableau is solved ...
+            solution = solutions()[int(input['ui_sol_index']())] if len(solutions()) > 1 else solutions()[0]
+            tableau = apply_solution(build_tableau(), solution)
+        else:
+            tableau = build_tableau()
+        
+        return render.DataGrid(tidy_tableaux(tableau), row_selection_mode='none', height='500px')
 
 
 app = App(app_ui, server)

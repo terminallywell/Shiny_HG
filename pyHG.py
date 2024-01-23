@@ -45,13 +45,19 @@ def read_file(filename):
 # Gen
 ####################################################
 
+# def gen_URlist(data):
+#   URlist = np.unique(data.UR).tolist()
+#   URlist = [x for x in URlist if x != '-']
+#   return URlist
+
 def gen_URlist(data):
-  URlist = np.unique(data.UR).tolist()
-  URlist = [x for x in URlist if x != '-']
-  return URlist
+  return data['UR'].drop_duplicates().to_list()
+
+# def gen_SR(data, udl):
+#   return np.unique(data.loc[data.UR==udl,'SR']).tolist()
 
 def gen_SR(data, udl):
-  return np.unique(data.loc[data.UR==udl,'SR']).tolist()
+  return data.loc[data['UR']==udl,'SR'].drop_duplicates().to_list()
 
 def gen_HR(data, sfc):
   return data.loc[data.SR==sfc,'HR'].tolist()
